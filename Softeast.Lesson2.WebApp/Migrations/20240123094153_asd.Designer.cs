@@ -13,7 +13,7 @@ namespace Softeast.Lesson2.WebApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     [Migration("20240123094153_asd")]
-    partial class asd
+    partial class MigOne
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

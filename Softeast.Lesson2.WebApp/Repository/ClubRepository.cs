@@ -32,10 +32,10 @@ namespace Softeast.Lesson2.WebApp.Repository
 
         public async Task<Club> GetByIdAsync(int id)
         {
-            return await _context.Clubs.FirstOrDefaultAsync(i => i.Id == id);
+            return await _context.Clubs.Include(i => i.Address).FirstOrDefaultAsync(i => i.Id == id);
         }
 
-        public async Task<IEnumerable<Club>> GetClubByCity(string city)
+        public async Task<IEnumerable<Club>> GetClubsByCity(string city)
         {
             return await _context.Clubs.Where(c => c.Address.City.Contains(city)).ToListAsync();
         }
@@ -44,11 +44,6 @@ namespace Softeast.Lesson2.WebApp.Repository
         {
             var saved = _context.SaveChanges();
             return saved > 0 ? true: false;
-        }
-
-        public bool Update(Club club)
-        {
-            throw new NotImplementedException();
         }
     }
 }

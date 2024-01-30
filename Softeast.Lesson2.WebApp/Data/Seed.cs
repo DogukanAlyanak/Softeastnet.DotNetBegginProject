@@ -1,5 +1,4 @@
-﻿using Softeast.Lesson2.WebApp.Data;
-using Softeast.Lesson2.WebApp.Data.Enum;
+﻿using Softeast.Lesson2.WebApp.Data.Enum;
 using Softeast.Lesson2.WebApp.Models;
 
 namespace Softeast.Lesson2.WebApp.Data

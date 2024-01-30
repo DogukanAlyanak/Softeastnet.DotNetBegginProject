@@ -1,11 +1,10 @@
-﻿namespace Softeast.Lesson2.WebApp.Data.Enum
+﻿namespace Softeast.Lesson2.WebApp.Data.Enum;
+
+public enum ClubCategory
 {
-    public enum ClubCategory
-    {
-        RoadRuner,
-        Womens,
-        City,
-        Trail,
-        Endurance
-    }
+    RoadRunner,
+    Womens,
+    City,
+    Trail,
+    Endurance
 }

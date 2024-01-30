@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Softeast.Lesson2.WebApp.Data;
+using Softeast.Lesson2.WebApp.Interfaces;
+using Softeast.Lesson2.WebApp.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<IClubRepository, ClubRepository>();
+builder.Services.AddScoped<IRaceRepository, RaceRepository>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));

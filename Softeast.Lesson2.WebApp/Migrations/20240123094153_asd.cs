@@ -5,7 +5,7 @@
 namespace Softeast.Lesson2.WebApp.Migrations
 {
     /// <inheritdoc />
-    public partial class asd : Migration
+    public partial class MigOne : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

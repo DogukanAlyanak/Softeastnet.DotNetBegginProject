@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Softeast.Lesson2.WebApp.Models;
+﻿using Softeast.Lesson2.WebApp.Models;
 
 namespace Softeast.Lesson2.WebApp.Interfaces
 {
@@ -7,9 +6,8 @@ namespace Softeast.Lesson2.WebApp.Interfaces
     {
         Task<IEnumerable<Club>> GetAll();
         Task<Club> GetByIdAsync(int id);
-        Task<IEnumerable<Club>> GetClubByCity(string city);
+        Task<IEnumerable<Club>> GetClubsByCity(string city);
         bool Add(Club club);
-        bool Update(Club club);
         bool Delete(Club club);
         bool Save();
     }
