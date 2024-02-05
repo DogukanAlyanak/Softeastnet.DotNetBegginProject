@@ -1,16 +1,19 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Softeast.Lesson2.WebApp.Interfaces;
 using Softeast.Lesson2.WebApp.Models;
+using Softeast.Lesson2.WebApp.ViewModels;
 
 namespace Softeast.Lesson2.WebApp.Controllers
 {
     public class ClubController : Controller
     {
         private readonly IClubRepository _clubRepository;
+        private readonly IPhotoService _photoService;
 
-        public ClubController(IClubRepository clubRepository)
+        public ClubController(IClubRepository clubRepository, IPhotoService photoService)
         {
             _clubRepository = clubRepository;
+            _photoService = photoService;
         }
         public async Task<IActionResult> Index()
         {
@@ -29,14 +32,30 @@ namespace Softeast.Lesson2.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create(Club club)
+        public async Task<IActionResult> Create(CreateClubViewModel clubVM)
         {
-            if (!ModelState.IsValid)
+            if (ModelState.IsValid)
             {
-                return View(club);
+                var result = await _photoService.AddPhotoAsync(clubVM.Image);
+                var club = new Club
+                {
+                    Title = clubVM.Title,
+                    Description = clubVM.Description,
+                    ClubCategory = clubVM.ClubCategory,
+                    Address = new Address {
+                        Street = clubVM.Address.Street,
+                        City = clubVM.Address.City,
+                        State = clubVM.Address.Street
+                    },
+                    Image = result.Url.ToString()
+                };
+                _clubRepository.Add(club);
+                return RedirectToAction("Index");
+            } else
+            {
+                ModelState.AddModelError("", "Photo upload failed!");
             }
-            _clubRepository.Add(club);
-            return RedirectToAction("Index");
+            return View(clubVM);
         }
     }
 }
