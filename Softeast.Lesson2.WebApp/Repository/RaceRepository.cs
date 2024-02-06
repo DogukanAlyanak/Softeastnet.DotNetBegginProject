@@ -19,6 +19,12 @@ namespace Softeast.Lesson2.WebApp.Repository
             return Save();
         }
 
+        public bool Update(Race race)
+        {
+            _context.Update(race);
+            return Save();
+        }
+
         public bool Delete(Race race)
         {
             _context.Remove(race);
@@ -33,6 +39,11 @@ namespace Softeast.Lesson2.WebApp.Repository
         public async Task<Race> GetByIdAsync(int id)
         {
             return await _context.Races.Include(i => i.Address).FirstOrDefaultAsync(i => i.Id == id);
+        }
+
+        public async Task<Race> GetByIdAsyncNoTracking(int id)
+        {
+            return await _context.Races.Include(i => i.Address).AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
         }
 
         public async Task<IEnumerable<Race>> GetRacesByCity(string city)

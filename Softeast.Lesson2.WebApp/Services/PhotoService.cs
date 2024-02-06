@@ -28,7 +28,8 @@ namespace Softeast.Lesson2.WebApp.Services
                 using var stream = file.OpenReadStream();
                 var uploadParams = new ImageUploadParams
                 {
-                    File = new FileDescription(file.FileName, stream)
+                    File = new FileDescription(file.FileName, stream),
+                    Transformation = new Transformation().Width(1920).Crop("scale").Chain().Height(1920).Crop("scale")
                 };
                 uploadResult = await _cloudinary.UploadAsync(uploadParams);
             }
