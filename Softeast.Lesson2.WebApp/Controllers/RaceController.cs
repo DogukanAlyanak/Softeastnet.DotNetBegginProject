@@ -128,5 +128,33 @@ namespace Softeast.Lesson2.WebApp.Controllers
 
             return RedirectToAction("Index");
         }
+        [HttpGet]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var race = await _raceRepository.GetByIdAsync(id);
+            if (race == null)
+            {
+                return View("Error");
+            }
+            return View(race);
+        }
+        [HttpPost, ActionName("Delete")]
+        public async Task<IActionResult> DeleteClub(int id)
+        {
+            var race = await _raceRepository.GetByIdAsync(id);
+            if (race == null)
+            {
+                return View("Error");
+            }
+
+            if (!string.IsNullOrEmpty(race.Image))
+            {
+                _ = _photoService.DeletePhotoAsync(race.Image);
+            }
+
+            _raceRepository.Delete(race);
+            return RedirectToAction("Index");
+
+        }
     }
 }
