@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Softeast.Lesson2.ViewModels
+namespace Softeast.Lesson2.WebApp.ViewModels
 {
     public class LoginViewModel
     {

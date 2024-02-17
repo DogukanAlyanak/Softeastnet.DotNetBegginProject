@@ -1,9 +1,8 @@
-﻿using Azure;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Softeast.Lesson2.ViewModels;
 using Softeast.Lesson2.WebApp.Data;
 using Softeast.Lesson2.WebApp.Models;
+using Softeast.Lesson2.WebApp.ViewModels;
 
 namespace Softeast.Lesson2.WebApp.Controllers
 {
@@ -59,5 +58,46 @@ namespace Softeast.Lesson2.WebApp.Controllers
             return View(loginViewModel);
 
         }
+
+        public IActionResult Register()
+        {
+            var res = new RegisterViewModel();
+            return View(res);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Register(RegisterViewModel registerViewModel)
+        {
+            if(!ModelState.IsValid) return View(registerViewModel);
+
+            var user = await _userManager.FindByEmailAsync(registerViewModel.EmailAddress);
+            if (user != null) {
+                TempData["Error"] = "This email is already in use";
+                return View(registerViewModel);
+            }
+            var newUser = new AppUser()
+            {
+                Email = registerViewModel.EmailAddress,
+                UserName = registerViewModel.EmailAddress
+            };
+            var newUserResponse = await _userManager.CreateAsync(newUser, registerViewModel.Password);
+
+            if (!newUserResponse.Succeeded)
+            {
+                return View(newUserResponse);
+            }
+
+            await _userManager.AddToRoleAsync(newUser, UserRoles.User);
+
+            return RedirectToAction("Index", "Home");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Logout()
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToAction("Index", "Home");
+        }
+
     }
 }
