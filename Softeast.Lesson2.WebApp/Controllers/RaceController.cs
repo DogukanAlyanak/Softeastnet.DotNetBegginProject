@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Softeast.Lesson2.WebApp.Data;
+using Softeast.Lesson2.WebApp.Data.Enum;
 using Softeast.Lesson2.WebApp.Interfaces;
 using Softeast.Lesson2.WebApp.Models;
-using Softeast.Lesson2.WebApp.Repository;
 using Softeast.Lesson2.WebApp.ViewModels;
 
 namespace Softeast.Lesson2.WebApp.Controllers
@@ -11,30 +12,64 @@ namespace Softeast.Lesson2.WebApp.Controllers
     {
         private readonly IRaceRepository _raceRepository;
         private readonly IPhotoService _photoService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public RaceController(IRaceRepository raceRepository, IPhotoService photoService)
+        public RaceController(IRaceRepository raceRepository, IPhotoService photoService, IHttpContextAccessor httpContextAccessor)
         {
             _raceRepository = raceRepository;
             _photoService = photoService;
+            _httpContextAccessor = httpContextAccessor;
         }
 
-        public ApplicationDbContext Context { get; }
 
-        public async Task<IActionResult> Index()
+        [HttpGet]
+        public async Task<IActionResult> Index(int category = -1, int page = 1, int pageSize = 6)
         {
-            IEnumerable<Race> races = await _raceRepository.GetAll();
-            return View(races);
+            if (page < 1 || pageSize < 1)
+            {
+                return NotFound();
+            }
+
+            // if category is -1 (All) dont filter else filter by selected category
+            var races = category switch
+            {
+                -1 => await _raceRepository.GetSliceAsync((page - 1) * pageSize, pageSize),
+                _ => await _raceRepository.GetRacesByCategoryAndSliceAsync((RaceCategory)category, (page - 1) * pageSize, pageSize),
+            };
+
+            var count = category switch
+            {
+                -1 => await _raceRepository.GetCountAsync(),
+                _ => await _raceRepository.GetCountByCategoryAsync((RaceCategory)category),
+            };
+
+            var viewModel = new IndexRaceViewModel
+            {
+                Races = races,
+                Page = page,
+                PageSize = pageSize,
+                TotalRaces = count,
+                TotalPages = (int)Math.Ceiling(count / (double)pageSize),
+                Category = category,
+            };
+
+            return View(viewModel);
         }
 
-        public async Task<IActionResult> Detail(int id)
+        [HttpGet]
+        [Route("event/{runningRace}/{id}")]
+        public async Task<IActionResult> DetailRace(int id, string runningRace)
         {
-            Race race = await _raceRepository.GetByIdAsync(id);
-            return View(race);
+            var race = await _raceRepository.GetByIdAsync(id);
+            return race == null ? NotFound() : View(race);
         }
 
+        [HttpGet]
         public IActionResult Create()
         {
-            return View();
+            var curUserID = _httpContextAccessor.HttpContext?.User.GetUserId();
+            var createRaceViewModel = new CreateRaceViewModel { AppUserId = curUserID };
+            return View(createRaceViewModel);
         }
 
         [HttpPost]
@@ -43,26 +78,29 @@ namespace Softeast.Lesson2.WebApp.Controllers
             if (ModelState.IsValid)
             {
                 var result = await _photoService.AddPhotoAsync(raceVM.Image);
+
                 var race = new Race
                 {
                     Title = raceVM.Title,
                     Description = raceVM.Description,
+                    Image = result.Url.ToString(),
+                    AppUserId = raceVM.AppUserId,
                     RaceCategory = raceVM.RaceCategory,
                     Address = new Address
                     {
                         Street = raceVM.Address.Street,
                         City = raceVM.Address.City,
-                        State = raceVM.Address.Street
-                    },
-                    Image = result.Url.ToString()
+                        State = raceVM.Address.State,
+                    }
                 };
                 _raceRepository.Add(race);
                 return RedirectToAction("Index");
             }
             else
             {
-                ModelState.AddModelError("", "Photo upload failed!");
+                ModelState.AddModelError("", "Photo upload failed");
             }
+
             return View(raceVM);
         }
 
@@ -88,30 +126,28 @@ namespace Softeast.Lesson2.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                ModelState.AddModelError("", "Failed to edit club!");
-                return View("Edit", raceVM);
+                ModelState.AddModelError("", "Failed to edit club");
+                return View(raceVM);
             }
 
+            var userRace = await _raceRepository.GetByIdAsyncNoTracking(id);
 
-
-            var raceNoTrack = await _raceRepository.GetByIdAsyncNoTracking(id);
-            if (raceNoTrack == null)
+            if (userRace == null)
             {
                 return View("Error");
             }
 
-
-
             var photoResult = await _photoService.AddPhotoAsync(raceVM.Image);
+
             if (photoResult.Error != null)
             {
                 ModelState.AddModelError("Image", "Photo upload failed");
                 return View(raceVM);
             }
 
-            if (!string.IsNullOrEmpty(raceNoTrack.Image))
+            if (!string.IsNullOrEmpty(userRace.Image))
             {
-                _ = _photoService.DeletePhotoAsync(raceNoTrack.Image);
+                _ = _photoService.DeletePhotoAsync(userRace.Image);
             }
 
             var race = new Race
@@ -121,40 +157,39 @@ namespace Softeast.Lesson2.WebApp.Controllers
                 Description = raceVM.Description,
                 Image = photoResult.Url.ToString(),
                 AddressId = raceVM.AddressId,
-                Address = raceVM.Address
+                Address = raceVM.Address,
             };
 
             _raceRepository.Update(race);
 
             return RedirectToAction("Index");
         }
+
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
-            var race = await _raceRepository.GetByIdAsync(id);
-            if (race == null)
-            {
-                return View("Error");
-            }
-            return View(race);
+            var clubDetails = await _raceRepository.GetByIdAsync(id);
+            if (clubDetails == null) return View("Error");
+            return View(clubDetails);
         }
+
         [HttpPost, ActionName("Delete")]
         public async Task<IActionResult> DeleteClub(int id)
         {
-            var race = await _raceRepository.GetByIdAsync(id);
-            if (race == null)
+            var raceDetails = await _raceRepository.GetByIdAsync(id);
+
+            if (raceDetails == null)
             {
                 return View("Error");
             }
 
-            if (!string.IsNullOrEmpty(race.Image))
+            if (!string.IsNullOrEmpty(raceDetails.Image))
             {
-                _ = _photoService.DeletePhotoAsync(race.Image);
+                _ = _photoService.DeletePhotoAsync(raceDetails.Image);
             }
 
-            _raceRepository.Delete(race);
+            _raceRepository.Delete(raceDetails);
             return RedirectToAction("Index");
-
         }
     }
 }

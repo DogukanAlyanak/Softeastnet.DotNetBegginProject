@@ -125,14 +125,14 @@ namespace Softeast.Lesson2.WebApp.Data
 
                 //Users
                 var userManager = serviceScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-                string adminUserEmail = "wixoricedev@gmail.com";
+                string adminUserEmail = "teddysmithdeveloper@gmail.com";
 
                 var adminUser = await userManager.FindByEmailAsync(adminUserEmail);
                 if (adminUser == null)
                 {
                     var newAdminUser = new AppUser()
                     {
-                        UserName = "wixorice",
+                        UserName = "teddysmithdev",
                         Email = adminUserEmail,
                         EmailConfirmed = true,
                         Address = new Address()

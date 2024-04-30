@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Softeast.Lesson2.WebApp.Data.Enum;
+using Softeast.Lesson2.WebApp.Helpers;
 using Softeast.Lesson2.WebApp.Interfaces;
 using Softeast.Lesson2.WebApp.Models;
 using Softeast.Lesson2.WebApp.ViewModels;
@@ -15,20 +17,137 @@ namespace Softeast.Lesson2.WebApp.Controllers
             _clubRepository = clubRepository;
             _photoService = photoService;
         }
-        public async Task<IActionResult> Index()
+
+        [HttpGet]
+        [Route("RunningClubs")]
+        public async Task<IActionResult> Index(int category = -1, int page = 1, int pageSize = 6)
         {
-            IEnumerable<Club> clubs = await _clubRepository.GetAll();
-            return View(clubs);
+            if (page < 1 || pageSize < 1)
+            {
+                return NotFound();
+            }
+
+            // if category is -1 (All) dont filter else filter by selected category
+            var clubs = category switch
+            {
+                -1 => await _clubRepository.GetSliceAsync((page - 1) * pageSize, pageSize),
+                _ => await _clubRepository.GetClubsByCategoryAndSliceAsync((ClubCategory)category, (page - 1) * pageSize, pageSize),
+            };
+
+            var count = category switch
+            {
+                -1 => await _clubRepository.GetCountAsync(),
+                _ => await _clubRepository.GetCountByCategoryAsync((ClubCategory)category),
+            };
+
+            var clubViewModel = new IndexClubViewModel
+            {
+                Clubs = clubs,
+                Page = page,
+                PageSize = pageSize,
+                TotalClubs = count,
+                TotalPages = (int)Math.Ceiling(count / (double)pageSize),
+                Category = category,
+            };
+
+            return View(clubViewModel);
         }
 
-        public async Task<IActionResult> Detail(int id)
+        [HttpGet]
+        [Route("RunningClubs/{state}")]
+        public async Task<IActionResult> ListClubsByState(string state)
         {
-            Club club = await _clubRepository.GetByIdAsync(id);
-            return View(club); 
+            var clubs = await _clubRepository.GetClubsByState(StateConverter.GetStateByName(state).ToString());
+            var clubVM = new ListClubByStateViewModel()
+            {
+                Clubs = clubs
+            };
+            if (clubs.Count() == 0)
+            {
+                clubVM.NoClubWarning = true;
+            }
+            else
+            {
+                clubVM.State = state;
+            }
+            return View(clubVM);
         }
 
-        public IActionResult Create() { 
-            return View();
+        [HttpGet]
+        [Route("RunningClubs/{city}/{state}")]
+        public async Task<IActionResult> ListClubsByCity(string city, string state)
+        {
+            var clubs = await _clubRepository.GetClubByCity(city);
+            var clubVM = new ListClubByCityViewModel()
+            {
+                Clubs = clubs
+            };
+            if (clubs.Count() == 0)
+            {
+                clubVM.NoClubWarning = true;
+            }
+            else
+            {
+                clubVM.State = state;
+                clubVM.City = city;
+            }
+            return View(clubVM);
+        }
+
+        [HttpGet]
+        [Route("club/{runningClub}/{id}")]
+        public async Task<IActionResult> DetailClub(int id, string runningClub)
+        {
+            var club = await _clubRepository.GetByIdAsync(id);
+
+            return club == null ? NotFound() : View(club);
+        }
+
+        [HttpGet]
+        [Route("RunningClubs/State")]
+        public async Task<IActionResult> RunningClubsByStateDirectory()
+        {
+            var states = await _clubRepository.GetAllStates();
+            var clubVM = new RunningClubByState()
+            {
+                States = states
+            };
+
+            return states == null ? NotFound() : View(clubVM);
+        }
+
+        [HttpGet]
+        [Route("RunningClubs/State/City")]
+        public async Task<IActionResult> RunningClubsByStateForCityDirectory()
+        {
+            var states = await _clubRepository.GetAllStates();
+            var clubVM = new RunningClubByState()
+            {
+                States = states
+            };
+
+            return states == null ? NotFound() : View(clubVM);
+        }
+
+        [HttpGet]
+        [Route("RunningClubs/{state}/City")]
+        public async Task<IActionResult> RunningClubsByCityDirectory(string state)
+        {
+            var cities = await _clubRepository.GetAllCitiesByState(StateConverter.GetStateByName(state).ToString());
+            var clubVM = new RunningClubByCity()
+            {
+                Cities = cities
+            };
+
+            return cities == null ? NotFound() : View(clubVM);
+        }
+
+        [HttpGet]
+        public IActionResult Create()
+        {
+            var curUserId = HttpContext.User.GetUserId();
+            var createClubViewModel = new CreateClubViewModel { AppUserId = curUserId };
+            return View(createClubViewModel);
         }
 
         [HttpPost]
@@ -37,24 +156,29 @@ namespace Softeast.Lesson2.WebApp.Controllers
             if (ModelState.IsValid)
             {
                 var result = await _photoService.AddPhotoAsync(clubVM.Image);
+
                 var club = new Club
                 {
                     Title = clubVM.Title,
                     Description = clubVM.Description,
+                    Image = result.Url.ToString(),
                     ClubCategory = clubVM.ClubCategory,
-                    Address = new Address {
+                    AppUserId = clubVM.AppUserId,
+                    Address = new Address
+                    {
                         Street = clubVM.Address.Street,
                         City = clubVM.Address.City,
-                        State = clubVM.Address.Street
-                    },
-                    Image = result.Url.ToString()
+                        State = clubVM.Address.State,
+                    }
                 };
                 _clubRepository.Add(club);
                 return RedirectToAction("Index");
-            } else
-            {
-                ModelState.AddModelError("", "Photo upload failed!");
             }
+            else
+            {
+                ModelState.AddModelError("", "Photo upload failed");
+            }
+
             return View(clubVM);
         }
 
@@ -80,29 +204,28 @@ namespace Softeast.Lesson2.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                ModelState.AddModelError("", "Failed to edit club!");
+                ModelState.AddModelError("", "Failed to edit club");
                 return View("Edit", clubVM);
             }
 
+            var userClub = await _clubRepository.GetByIdAsyncNoTracking(id);
 
-
-            var clubNoTrack = await _clubRepository.GetByIdAsyncNoTracking(id);
-            if (clubNoTrack == null)
+            if (userClub == null)
             {
                 return View("Error");
             }
 
-            
-            
             var photoResult = await _photoService.AddPhotoAsync(clubVM.Image);
-            if (photoResult.Error != null) {
+
+            if (photoResult.Error != null)
+            {
                 ModelState.AddModelError("Image", "Photo upload failed");
                 return View(clubVM);
             }
 
-            if (!string.IsNullOrEmpty(clubNoTrack.Image))
+            if (!string.IsNullOrEmpty(userClub.Image))
             {
-                _ = _photoService.DeletePhotoAsync(clubNoTrack.Image);
+                _ = _photoService.DeletePhotoAsync(userClub.Image);
             }
 
             var club = new Club
@@ -112,40 +235,39 @@ namespace Softeast.Lesson2.WebApp.Controllers
                 Description = clubVM.Description,
                 Image = photoResult.Url.ToString(),
                 AddressId = clubVM.AddressId,
-                Address = clubVM.Address
+                Address = clubVM.Address,
             };
 
             _clubRepository.Update(club);
 
             return RedirectToAction("Index");
         }
+
         [HttpGet]
         public async Task<IActionResult> Delete(int id)
         {
-            var club = await _clubRepository.GetByIdAsync(id);
-            if (club == null)
-            {
-                return View("Error");
-            }
-            return View(club);
+            var clubDetails = await _clubRepository.GetByIdAsync(id);
+            if (clubDetails == null) return View("Error");
+            return View(clubDetails);
         }
+
         [HttpPost, ActionName("Delete")]
         public async Task<IActionResult> DeleteClub(int id)
         {
-            var club = await _clubRepository.GetByIdAsync(id);
-            if (club == null)
+            var clubDetails = await _clubRepository.GetByIdAsync(id);
+
+            if (clubDetails == null)
             {
                 return View("Error");
             }
 
-            if (!string.IsNullOrEmpty(club.Image))
+            if (!string.IsNullOrEmpty(clubDetails.Image))
             {
-                _ = _photoService.DeletePhotoAsync(club.Image);
+                _ = _photoService.DeletePhotoAsync(clubDetails.Image);
             }
 
-            _clubRepository.Delete(club);
+            _clubRepository.Delete(clubDetails);
             return RedirectToAction("Index");
-
         }
     }
 }
